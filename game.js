@@ -255,6 +255,7 @@ function togglePause() {
 }
 
 function loop(ts) {
+  if (gameOver || paused) return;
   const dt = ts - lastTime;
   lastTime = ts;
   dropAccum += dt;
@@ -267,7 +268,11 @@ function loop(ts) {
     }
   }
   draw();
-  animId = requestAnimationFrame(loop);
+  // No re-programar si la partida terminó (o se pausó) durante este frame,
+  // p. ej. lockPiece() -> spawn() -> endGame() puede activar gameOver aquí.
+  if (!gameOver && !paused) {
+    animId = requestAnimationFrame(loop);
+  }
 }
 
 function init() {
@@ -290,7 +295,14 @@ function init() {
 
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyP') { togglePause(); return; }
-  if (paused || gameOver) return;
+  if (paused || gameOver) {
+    // Evitar que Space/flechas activen el control con foco (p. ej. el toggle
+    // de tema) o desplacen la página cuando el juego está detenido.
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+      e.preventDefault();
+    }
+    return;
+  }
   switch (e.code) {
     case 'ArrowLeft':
       if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -320,6 +332,8 @@ themeToggle.addEventListener('change', () => {
   localStorage.setItem(THEME_KEY, theme);
   applyTheme(theme);
   draw();
+  // Soltar el foco para que el teclado (Space) no vuelva a alternar el tema.
+  themeToggle.blur();
 });
 
 applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
