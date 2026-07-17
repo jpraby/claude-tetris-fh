@@ -1,4 +1,41 @@
+# ============================================================================
+#  Claude Issue Triage
+# ============================================================================
+#
+#  Descripción
+#  -----------
+#  Triaje automático de issues con Claude. Cuando se crea un issue —o se edita
+#  el issue principal— Claude lo analiza para clasificarlo y dejar un
+#  diagnóstico técnico que sirva de punto de partida para implementar la
+#  solución.
+#
+#  Qué hace
+#  --------
+#    1. Lee el título y el cuerpo del issue.
+#    2. Revisa los labels existentes y crea la taxonomía estándar si falta.
+#    3. Asigna labels: tipo · área · prioridad.
+#    4. Publica un comentario con un diagnóstico estructurado.
+#
+#  Disparadores (on)
+#  -----------------
+#    - issues: opened   → issue recién creado
+#    - issues: edited    → se edita el título o el cuerpo del issue principal
+#
+#  Requisitos
+#  ----------
+#    - Secret del repositorio: CLAUDE_CODE_OAUTH_TOKEN
+#    - Permisos: issues: write (etiquetar y comentar)
+#
+#  Notas
+#  -----
+#    - Solo comenta y etiqueta; nunca modifica el cuerpo del issue ni el código
+#      (etiquetar/comentar no dispara el evento `edited`, evitando bucles).
+#    - Se ignoran los issues creados por bots.
+# ============================================================================
+
 name: Claude Issue Triage
+
+run-name: "Triaje del issue #${{ github.event.issue.number }} — ${{ github.event.issue.title }}"
 
 on:
   issues:
