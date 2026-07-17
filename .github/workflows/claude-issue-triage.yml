@@ -1,0 +1,90 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    # Evitar re-disparos por acciones de bots (incluido el propio bot que comenta/etiqueta)
+    if: github.event.issue.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Issue Triage
+        id: claude-triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowed-tools "Bash(gh label list:*),Bash(gh label create:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*)"'
+          prompt: |
+            Eres el asistente de triaje de issues de este repositorio.
+
+            ## Contexto del proyecto
+            Tetris clásico implementado en JavaScript vanilla con la API Canvas 2D de HTML5.
+            Sin dependencias, sin build, sin gestor de paquetes. Toda la lógica del juego vive
+            en `game.js` (~300 líneas). El DOM está en `index.html` (canvases `#board` y
+            `#next-canvas`, paneles `#score`/`#lines`/`#level`, `#overlay`) y los estilos en
+            `style.css` (tema arcade oscuro). La UI y los comentarios están en español.
+
+            ## Issue a analizar
+            - Número: ${{ github.event.issue.number }}
+            - Título: ${{ github.event.issue.title }}
+            - Repositorio: ${{ github.repository }}
+
+            Lee el cuerpo completo del issue con `gh issue view ${{ github.event.issue.number }}`.
+
+            ## Tareas
+
+            1. **Conocer los labels existentes**: ejecuta `gh label list`.
+
+            2. **Asegurar la taxonomía estándar**: crea con `gh label create <nombre> --force`
+               ÚNICAMENTE los labels que falten de esta lista (no dupliques los que ya existen):
+               - Tipo: `bug`, `enhancement`, `question`, `documentation`
+               - Área: `ui`, `gameplay`, `rendering`, `input`, `performance`
+               - Prioridad: `prioridad-alta`, `prioridad-media`, `prioridad-baja`
+
+            3. **Asignar labels**: con `gh issue edit ${{ github.event.issue.number }} --add-label`
+               aplica los labels apropiados: exactamente 1 de tipo, las áreas pertinentes (una o
+               varias), y exactamente 1 de prioridad. Basa la elección en el contenido del issue.
+
+            4. **Publicar el diagnóstico**: con
+               `gh issue comment ${{ github.event.issue.number }} --body "..."`
+               publica un comentario en español con este formato Markdown:
+
+               ## 🔍 Diagnóstico automático
+
+               **Resumen**
+               (1-2 frases describiendo el problema o la solicitud tal como lo entiendes.)
+
+               **Componentes afectados**
+               (Qué archivos/partes probablemente hay que tocar: `game.js` y qué funciones o
+               conceptos —loop, collide, tryRotate, clearLines, spawn, draw, etc.—, `index.html`,
+               `style.css`. Sé concreto.)
+
+               **Análisis técnico / causa probable**
+               (Tu hipótesis sobre la causa raíz si es un bug, o las consideraciones de diseño si
+               es una mejora.)
+
+               **Enfoque sugerido para la solución**
+               (Pasos concretos y accionables que sirvan como punto de partida para implementar el
+               código.)
+
+               **Preguntas abiertas**
+               (Solo si falta información para resolverlo; omite esta sección si no aplica.)
+
+            ## Reglas
+            - Si el evento es una edición y ya existe un comentario de diagnóstico automático tuyo,
+              revisa los comentarios (`gh issue view --comments`) y actualiza el análisis en un
+              comentario nuevo solo si el cambio del issue lo amerita; evita ruido duplicado.
+            - Escribe siempre en español.
+            - No modifiques el cuerpo del issue ni el código del repositorio.
